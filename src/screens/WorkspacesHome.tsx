@@ -798,17 +798,17 @@ function ScopedSessionList({
       <div className="flex items-center justify-between gap-3">
         <button
           onClick={onBack}
-          className="-ml-1 flex items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-cc-surface-hover"
+          className="-ml-1 flex items-baseline gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-cc-surface-hover"
         >
-          <ChevronLeft className="h-4 w-4 text-foreground" />
-          <span className="text-[14px] font-medium text-muted-foreground">
+          <ChevronLeft className="h-4 w-4 self-center text-foreground" />
+          <span className="text-[14px] font-medium leading-none text-muted-foreground">
             {basename(workspace)}
           </span>
-          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          <ChevronRight className="h-3 w-3 self-center text-muted-foreground" />
           <span className="text-[18px] font-bold leading-none tracking-tight text-foreground">
             {basename(projectPath)}
           </span>
-          <span className="text-[12px] font-medium text-muted-foreground">
+          <span className="text-[14px] font-medium leading-none text-muted-foreground">
             · {ordered.length} session{ordered.length === 1 ? "" : "s"}
           </span>
         </button>
@@ -817,7 +817,7 @@ function ScopedSessionList({
           <button
             onClick={generateAISummaries}
             disabled={aiPending}
-            className="flex items-center gap-2 rounded-cc-md bg-foreground px-3.5 py-2 text-[12px] font-semibold text-background shadow-[0_1px_0_rgba(0,0,0,0.2),0_6px_18px_-6px_rgba(0,0,0,0.6)] transition-opacity hover:opacity-90 disabled:opacity-60"
+            className="flex items-center gap-2 rounded-cc-md bg-foreground px-3.5 py-2 text-[12px] font-semibold text-background shadow-[0_1px_2px_rgba(0,0,0,0.06),0_4px_12px_-4px_rgba(0,0,0,0.18)] dark:shadow-[0_1px_0_rgba(0,0,0,0.2),0_6px_18px_-6px_rgba(0,0,0,0.6)] transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             <Sparkles className="h-3 w-3" />
             {aiPending
@@ -920,30 +920,30 @@ function ScopedProjectRow({
     <button
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-cc-surface-hover",
+        "flex w-full items-baseline gap-3 px-4 py-2.5 text-left transition-colors hover:bg-cc-surface-hover",
         !isFirst && "border-t border-border",
       )}
     >
       <span
-        className="h-1.5 w-1.5 shrink-0 rounded-full"
+        className="h-1.5 w-1.5 shrink-0 translate-y-[1px] self-center rounded-full"
         style={{ backgroundColor: color }}
       />
-      <span className="truncate text-[12.5px] font-medium text-foreground">
+      <span className="truncate text-[13px] font-medium leading-none text-foreground">
         {name}
       </span>
-      <span className="shrink-0 text-[10.5px] text-muted-foreground">
+      <span className="shrink-0 text-[12px] font-medium leading-none text-muted-foreground">
         {sessionCount} session{sessionCount === 1 ? "" : "s"}
       </span>
       {branch && (
-        <span className="shrink-0 truncate font-mono text-[10.5px] text-muted-foreground">
+        <span className="shrink-0 truncate font-mono text-[12px] leading-none text-muted-foreground">
           {branch}
         </span>
       )}
       <span className="grow" />
-      <span className="shrink-0 text-[10.5px] text-muted-foreground">
+      <span className="shrink-0 text-[12px] leading-none text-muted-foreground">
         {lastActive ? `${formatRelativeTime(lastActive)} ago` : "—"}
       </span>
-      <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+      <ChevronRight className="h-3 w-3 shrink-0 self-center text-muted-foreground" />
     </button>
   );
 }
@@ -974,7 +974,7 @@ function WorkspaceChips({
         onClick={onPickAll}
         leadingIcon={<span className="h-2.5 w-2.5 rounded-full bg-cc-accent" />}
       >
-        All <span className="text-[10.5px] text-muted-foreground">{totalSessions}</span>
+        All <span className="text-[12px] font-medium text-muted-foreground">{totalSessions}</span>
       </Chip>
       {chips.map((c) => (
         <Chip
@@ -984,13 +984,13 @@ function WorkspaceChips({
           leadingIcon={<Folder className="h-3 w-3 text-muted-foreground" />}
         >
           <span className="text-foreground">{c.name}</span>
-          <span className="text-[10.5px] text-muted-foreground">{c.count}</span>
+          <span className="text-[12px] font-medium text-muted-foreground">{c.count}</span>
         </Chip>
       ))}
       {unsortedCount > 0 && (
         <Chip leadingIcon={<Sparkles className="h-3 w-3 text-cc-claude" />}>
           <span className="text-foreground">Unsorted</span>
-          <span className="text-[10.5px] font-semibold text-cc-claude">
+          <span className="text-[12px] font-semibold text-cc-claude">
             {unsortedCount}
           </span>
         </Chip>
@@ -1026,7 +1026,7 @@ function Chip({
       className={cn(
         "flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-medium transition-colors",
         selected
-          ? "bg-foreground text-background shadow-[0_1px_0_rgba(0,0,0,0.2),0_6px_18px_-6px_rgba(0,0,0,0.6)] [&_span]:!text-background [&_svg]:!text-background"
+          ? "bg-foreground text-background shadow-[0_1px_2px_rgba(0,0,0,0.06),0_4px_12px_-4px_rgba(0,0,0,0.18)] dark:shadow-[0_1px_0_rgba(0,0,0,0.2),0_6px_18px_-6px_rgba(0,0,0,0.6)] [&_span]:!text-background [&_svg]:!text-background"
           : onClick
             ? "border border-transparent hover:border-border hover:bg-cc-surface-hover"
             : "border border-transparent",
@@ -1156,7 +1156,8 @@ function SearchBar({
       <div
         className={cn(
           "flex items-center gap-3 rounded-[14px] border border-border bg-cc-card px-4 py-2.5 transition-shadow",
-          open && "shadow-[0_8px_24px_-6px_rgba(0,0,0,0.4)]",
+          open &&
+            "shadow-[0_4px_16px_-6px_rgba(0,0,0,0.18)] dark:shadow-[0_8px_24px_-6px_rgba(0,0,0,0.4)]",
         )}
       >
         <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
