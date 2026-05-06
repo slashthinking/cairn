@@ -6,6 +6,16 @@ Cairn reads `~/.claude/projects/` directly, never sends your transcripts off the
 
 > Status: pre-1.0. Apple Silicon only. No Apple Developer signing — first launch needs a manual Gatekeeper bypass (see [Install](#install)).
 
+## Screenshots
+
+![Mix dashboard — today + yesterday timeline, by-topic clusters, hybrid search](docs/screenshots/v2-k-mix-e-g.jpg)
+
+*Mix dashboard. Today + yesterday with AI daily synthesis, by-topic project clusters, and ⌘K hybrid search across every session you've ever had with Claude.*
+
+![First launch — model download + index build](docs/screenshots/v2-k-first-launch.jpg)
+
+*First-launch setup. The Qwen3-Embedding-0.6B model downloads once into `~/.cache/huggingface/`, then the hybrid index builds in-process. Subsequent launches start in under a second.*
+
 ---
 
 ## Why

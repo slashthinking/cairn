@@ -1,5 +1,5 @@
-import { X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Sparkles, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "./Modal";
 import { useApp } from "../store/AppStore";
 import { toast } from "../components/Toast";
@@ -18,7 +18,52 @@ export function QuickStartModal({ onClose }: Props) {
   const [submitting, setSubmitting] = useState(false);
 
   const stamp = useMemo(formatStamp, []);
-  const folderName = `scratch-${stamp}`;
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+  const [aiPending, setAiPending] = useState(false);
+  const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounce AI folder-name generation. Fires ~600ms after user stops typing,
+  // calls the local `claude` CLI via renameSuggestions, picks the top suggestion
+  // (≤32 chars, slug-safe per SCHEMA_RENAME). Falls back to plain slugify on
+  // failure / empty prompt.
+  useEffect(() => {
+    if (aiTimer.current) clearTimeout(aiTimer.current);
+    const trimmed = prompt.trim();
+    if (trimmed.length < 8) {
+      setAiSuggestion(null);
+      setAiPending(false);
+      return;
+    }
+    aiTimer.current = setTimeout(async () => {
+      setAiPending(true);
+      try {
+        const r = await window.cairn.renameSuggestions({
+          kind: "project",
+          context: trimmed,
+        });
+        const top = r.suggestions[0]?.name?.trim();
+        // Only accept names matching the slug constraint we asked claude for.
+        if (top && /^[a-z0-9_-]+$/.test(top) && top.length <= 32) {
+          setAiSuggestion(top);
+        } else {
+          setAiSuggestion(null);
+        }
+      } catch {
+        setAiSuggestion(null);
+      } finally {
+        setAiPending(false);
+      }
+    }, 600);
+    return () => {
+      if (aiTimer.current) clearTimeout(aiTimer.current);
+    };
+  }, [prompt]);
+
+  const folderName = useMemo(() => {
+    if (aiSuggestion) return aiSuggestion;
+    const slug = slugify(prompt);
+    return slug || `scratch-${stamp}`;
+  }, [aiSuggestion, prompt, stamp]);
   const projectPath = workspace
     ? `${workspace.replace(/\/$/, "")}/${folderName}`
     : "";
@@ -107,7 +152,19 @@ export function QuickStartModal({ onClose }: Props) {
           <span className="truncate">
             {projectPath || "(pick a workspace)"}
           </span>
-          <span className="opacity-60">· folder will be created</span>
+          {aiPending ? (
+            <span className="flex items-center gap-1 font-sans text-cc-claude opacity-80">
+              <Sparkles className="h-3 w-3 animate-pulse" />
+              naming…
+            </span>
+          ) : aiSuggestion ? (
+            <span className="flex items-center gap-1 font-sans text-cc-claude opacity-80">
+              <Sparkles className="h-3 w-3" />
+              AI named
+            </span>
+          ) : (
+            <span className="opacity-60">· folder will be created</span>
+          )}
         </div>
       </div>
 
@@ -139,4 +196,21 @@ function formatStamp(): string {
 
 function pad(n: number): string {
   return n.toString().padStart(2, "0");
+}
+
+// Convert "Refactor 3DS retry — wire idempotency keys" → "refactor-3ds-retry-wire"
+// Lowercased ASCII slug capped at ~32 chars, first 5 word-tokens. CJK + non-ASCII
+// chars collapse to dashes (matching the path-encoding rule used elsewhere).
+function slugify(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return "";
+  const lower = trimmed.toLowerCase();
+  const tokens = lower
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (tokens.length === 0) return "";
+  let slug = tokens.slice(0, 5).join("-");
+  if (slug.length > 32) slug = slug.slice(0, 32).replace(/-+$/, "");
+  return slug;
 }

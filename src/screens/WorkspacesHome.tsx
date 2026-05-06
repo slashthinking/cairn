@@ -456,6 +456,10 @@ export function WorkspacesHome({
                   if (ws) setScope(ws);
                   drillIntoProject(path);
                 }}
+                onEnterWorkspace={(ws) => {
+                  setScope(ws);
+                  setProjectDrill(null);
+                }}
                 onRecluster={async (ws) => {
                   try {
                     await app.runClustering(ws);
@@ -475,17 +479,40 @@ export function WorkspacesHome({
           ) : projectDrill === null ? (
             // ── Workspace scope = project list ────────────────────────────
             <ScopedProjectList
+              workspace={scope}
               projects={app.projectsByWorkspace[scope] ?? []}
               sessionsByProject={app.sessionsByProject}
+              clusters={
+                Array.isArray(app.clustersByWorkspace[scope])
+                  ? (app.clustersByWorkspace[scope] as {
+                      name: string;
+                      projectIds: string[];
+                    }[])
+                  : undefined
+              }
               onJumpProject={drillIntoProject}
+              onRecluster={async () => {
+                try {
+                  await app.runClustering(scope);
+                  toast.success("Re-clustered");
+                } catch (err) {
+                  toast.error(
+                    "Cluster failed",
+                    err instanceof Error ? err.message : String(err),
+                  );
+                }
+              }}
             />
           ) : (
             // ── Project drill = session list of that project ──────────────
             <ScopedSessionList
               projectPath={projectDrill}
+              workspace={scope}
               sessions={app.sessionsByProject[projectDrill] ?? []}
+              sessionTitles={app.sessionTitles}
               onBack={() => setProjectDrill(null)}
               onOpenSession={(sessionId) => openSession(projectDrill, sessionId)}
+              onRefresh={() => app.refreshAll()}
             />
           )}
         </div>
@@ -523,12 +550,23 @@ function buildDayBuckets(sessions: AllSession[]): DayBucket[] {
 function ScopedProjectList({
   projects,
   sessionsByProject,
+  clusters,
   onJumpProject,
+  onRecluster,
 }: {
+  workspace: string;
   projects: { path: string; name: string; sessionCount: number }[];
   sessionsByProject: ReturnType<typeof useApp>["sessionsByProject"];
+  clusters: { name: string; projectIds: string[] }[] | undefined;
   onJumpProject: (projectPath: string) => void;
+  onRecluster: () => Promise<void>;
 }) {
+  const hasClusters = Array.isArray(clusters) && clusters.length > 0;
+  const [view, setView] = useState<"topic" | "time">(
+    hasClusters ? "topic" : "time",
+  );
+  const [reclusterPending, setReclusterPending] = useState(false);
+
   const ordered = useMemo(() => {
     const annotated = projects.map((p) => {
       const top = sessionsByProject[p.path]?.[0];
@@ -542,77 +580,269 @@ function ScopedProjectList({
     return annotated;
   }, [projects, sessionsByProject]);
 
+  const byPath = useMemo(
+    () =>
+      new Map(
+        projects.map((p) => [p.path, p] as const),
+      ),
+    [projects],
+  );
+
+  const clusterGroups = useMemo(() => {
+    if (!hasClusters || !clusters) return [];
+    const claimed = new Set<string>();
+    const groups = clusters
+      .filter((c) => !c.name.toLowerCase().includes("unsorted"))
+      .map((c) => {
+        const ids = c.projectIds.filter((id) => byPath.has(id));
+        ids.forEach((id) => claimed.add(id));
+        return { name: c.name, projectIds: ids };
+      })
+      .filter((g) => g.projectIds.length > 0);
+    const unclaimed = projects
+      .map((p) => p.path)
+      .filter((id) => !claimed.has(id));
+    if (unclaimed.length > 0) {
+      groups.push({ name: "Uncategorized", projectIds: unclaimed });
+    }
+    return groups;
+  }, [clusters, hasClusters, byPath, projects]);
+
+  async function handleRecluster() {
+    setReclusterPending(true);
+    try {
+      await onRecluster();
+      setView("topic");
+    } finally {
+      setReclusterPending(false);
+    }
+  }
+
+  if (ordered.length === 0) {
+    return (
+      <div className="rounded-[10px] border border-border bg-cc-card px-4 py-6 text-center text-[12px] text-muted-foreground">
+        No projects yet — start one with New scratch.
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col rounded-[10px] border border-border bg-cc-card">
-      {ordered.length === 0 ? (
-        <p className="px-4 py-6 text-center text-[12px] text-muted-foreground">
-          No projects yet — start one with New scratch.
-        </p>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-2">
+        {hasClusters ? (
+          <div className="flex items-center gap-1 rounded-full border border-border bg-cc-surface-press p-1">
+            <ToggleSeg
+              active={view === "topic"}
+              onClick={() => setView("topic")}
+              label="By topic"
+            />
+            <ToggleSeg
+              active={view === "time"}
+              onClick={() => setView("time")}
+              label="By time"
+            />
+          </div>
+        ) : (
+          <span className="text-[11px] text-muted-foreground">
+            {ordered.length} projects · most recent first
+          </span>
+        )}
+        <button
+          onClick={handleRecluster}
+          disabled={reclusterPending}
+          className="flex items-center gap-1.5 rounded-cc-md border border-border bg-cc-card px-3 py-1.5 text-[11.5px] font-medium text-foreground transition-colors hover:bg-cc-surface-press disabled:opacity-50"
+        >
+          <Sparkles className="h-3 w-3" />
+          {reclusterPending
+            ? "Clustering…"
+            : hasClusters
+              ? "Re-cluster"
+              : "AI Cluster"}
+        </button>
+      </div>
+
+      {view === "topic" && hasClusters ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {clusterGroups.map((g) => (
+            <ClusterCard
+              key={g.name}
+              name={g.name}
+              projectIds={g.projectIds}
+              byPath={byPath}
+              onJump={onJumpProject}
+            />
+          ))}
+        </div>
       ) : (
-        ordered.map((p, i) => (
-          <ScopedProjectRow
-            key={p.path}
-            name={p.name}
-            path={p.path}
-            sessionCount={p.sessionCount}
-            lastActive={p.lastActive}
-            branch={p.branch}
-            isFirst={i === 0}
-            onClick={() => onJumpProject(p.path)}
-          />
-        ))
+        <div className="flex flex-col rounded-[10px] border border-border bg-cc-card">
+          {ordered.map((p, i) => (
+            <ScopedProjectRow
+              key={p.path}
+              name={p.name}
+              path={p.path}
+              sessionCount={p.sessionCount}
+              lastActive={p.lastActive}
+              branch={p.branch}
+              isFirst={i === 0}
+              onClick={() => onJumpProject(p.path)}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
+function ToggleSeg({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "rounded-full px-3 py-1 text-[11.5px] font-medium transition-colors",
+        active
+          ? "bg-cc-card text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
 function ScopedSessionList({
   projectPath,
+  workspace,
   sessions,
+  sessionTitles,
   onBack,
   onOpenSession,
+  onRefresh,
 }: {
   projectPath: string;
+  workspace: string;
   sessions: import("../types/cairn-api").Session[];
+  sessionTitles: Record<string, string>;
   onBack: () => void;
   onOpenSession: (sessionId: string) => void;
+  onRefresh: () => Promise<void>;
 }) {
   const ordered = useMemo(
     () => [...sessions].sort((a, b) => b.lastActive - a.lastActive),
     [sessions],
   );
 
-  return (
-    <div className="flex flex-col rounded-[10px] border border-border bg-cc-card">
-      {/* Inline back row — sits inside the content card so the global header
-          stays untouched. Project name is the back affordance. */}
-      <button
-        onClick={onBack}
-        className="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left hover:bg-cc-surface-hover"
-      >
-        <ChevronLeft className="h-3 w-3 text-muted-foreground" />
-        <span className="text-[12.5px] font-semibold text-foreground">
-          {basename(projectPath)}
-        </span>
-        <span className="text-[10.5px] text-muted-foreground">
-          {ordered.length} session{ordered.length === 1 ? "" : "s"}
-        </span>
-      </button>
+  const recent = ordered.slice(0, 30);
+  const unnamedCount = recent.filter((s) => !sessionTitles[s.id]).length;
 
-      {ordered.length === 0 ? (
-        <p className="px-4 py-6 text-center text-[12px] text-muted-foreground">
-          No sessions yet.
-        </p>
-      ) : (
-        ordered.map((s, i) => (
-          <SessionInProjectRow
-            key={s.id}
-            session={s}
-            isFirst={i === 0}
-            onClick={() => onOpenSession(s.id)}
-          />
-        ))
-      )}
+  const [aiPending, setAiPending] = useState(false);
+  const [aiProgress, setAiProgress] = useState({ done: 0, total: 0 });
+
+  async function generateAISummaries() {
+    const toName = recent.filter((s) => !sessionTitles[s.id]);
+    if (toName.length === 0) return;
+    setAiPending(true);
+    setAiProgress({ done: 0, total: toName.length });
+    let done = 0;
+    let errored = 0;
+    // Concurrency: 2 — we're shelling out to the local `claude` CLI per
+    // session. Going higher floods file handles + the user's machine.
+    const queue = [...toName];
+    async function worker() {
+      while (queue.length > 0) {
+        const s = queue.shift();
+        if (!s) break;
+        try {
+          const ctx = await window.cairn.getSessionContext(projectPath, s.id);
+          const r = await window.cairn.renameSuggestions({
+            kind: "session",
+            context: ctx,
+          });
+          const top = r.suggestions[0];
+          if (top?.name) {
+            await window.cairn.setSessionTitle(s.id, top.name);
+          }
+        } catch {
+          errored += 1;
+        } finally {
+          done += 1;
+          setAiProgress({ done, total: toName.length });
+        }
+      }
+    }
+    await Promise.all([worker(), worker()]);
+    await onRefresh();
+    setAiPending(false);
+    if (errored === 0) {
+      toast.success(`Named ${done} session${done === 1 ? "" : "s"}`);
+    } else {
+      toast.info(
+        `Named ${done - errored} of ${done}`,
+        `${errored} failed — see ~/.claude/cairn/logs`,
+      );
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Breadcrumb + AI summaries action — sits above the list, replacing the
+          old in-card back row. Workspace name is muted; project name is the
+          heaviest element on the row. */}
+      <div className="flex items-center justify-between gap-3">
+        <button
+          onClick={onBack}
+          className="-ml-1 flex items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-cc-surface-hover"
+        >
+          <ChevronLeft className="h-4 w-4 text-foreground" />
+          <span className="text-[14px] font-medium text-muted-foreground">
+            {basename(workspace)}
+          </span>
+          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+          <span className="text-[18px] font-bold leading-none tracking-tight text-foreground">
+            {basename(projectPath)}
+          </span>
+          <span className="text-[12px] font-medium text-muted-foreground">
+            · {ordered.length} session{ordered.length === 1 ? "" : "s"}
+          </span>
+        </button>
+
+        {unnamedCount > 0 && (
+          <button
+            onClick={generateAISummaries}
+            disabled={aiPending}
+            className="flex items-center gap-2 rounded-cc-md bg-foreground px-3.5 py-2 text-[12px] font-semibold text-background shadow-[0_1px_0_rgba(0,0,0,0.2),0_6px_18px_-6px_rgba(0,0,0,0.6)] transition-opacity hover:opacity-90 disabled:opacity-60"
+          >
+            <Sparkles className="h-3 w-3" />
+            {aiPending
+              ? `Generating… ${aiProgress.done}/${aiProgress.total}`
+              : `Generate AI summaries · ${unnamedCount}`}
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-col rounded-[10px] border border-border bg-cc-card">
+        {ordered.length === 0 ? (
+          <p className="px-4 py-6 text-center text-[12px] text-muted-foreground">
+            No sessions yet.
+          </p>
+        ) : (
+          ordered.map((s, i) => (
+            <SessionInProjectRow
+              key={s.id}
+              session={s}
+              isFirst={i === 0}
+              onClick={() => onOpenSession(s.id)}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }
@@ -794,9 +1024,9 @@ function Chip({
     <Tag
       onClick={onClick}
       className={cn(
-        "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-normal transition-colors",
+        "flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-medium transition-colors",
         selected
-          ? "border border-border bg-cc-surface-press"
+          ? "bg-foreground text-background shadow-[0_1px_0_rgba(0,0,0,0.2),0_6px_18px_-6px_rgba(0,0,0,0.6)] [&_span]:!text-background [&_svg]:!text-background"
           : onClick
             ? "border border-transparent hover:border-border hover:bg-cc-surface-hover"
             : "border border-transparent",
@@ -925,11 +1155,11 @@ function SearchBar({
     <div className="relative">
       <div
         className={cn(
-          "flex items-center gap-3 rounded-[14px] border border-border bg-cc-card px-4 py-3 transition-shadow",
+          "flex items-center gap-3 rounded-[14px] border border-border bg-cc-card px-4 py-2.5 transition-shadow",
           open && "shadow-[0_8px_24px_-6px_rgba(0,0,0,0.4)]",
         )}
       >
-        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <input
           ref={inputRef}
           value={query}
@@ -956,10 +1186,10 @@ function SearchBar({
             }
           }}
           placeholder="Search sessions, projects, workspaces…"
-          className="grow bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+          className="grow bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
-        <kbd className="rounded-[6px] border border-border bg-cc-surface-base px-2 py-[3px] text-[10.5px] font-medium text-foreground">
-          ⌘ K
+        <kbd className="flex items-center gap-1 rounded-[6px] border border-border bg-cc-surface-base px-1.5 py-[2px] text-[10px] font-semibold text-cc-accent-fg">
+          ⌘K
         </kbd>
       </div>
 
@@ -1840,12 +2070,14 @@ function ByTopicSection({
   projectsByWorkspace,
   clustersByWorkspace,
   onJumpProject,
+  onEnterWorkspace,
   onRecluster,
 }: {
   workspaces: string[];
   projectsByWorkspace: ReturnType<typeof useApp>["projectsByWorkspace"];
   clustersByWorkspace: ReturnType<typeof useApp>["clustersByWorkspace"];
   onJumpProject: (projectPath: string) => void;
+  onEnterWorkspace: (workspacePath: string) => void;
   onRecluster: (workspacePath: string) => Promise<void>;
 }) {
   const wsWithClusters = workspaces.filter((w) => Array.isArray(clustersByWorkspace[w]));
@@ -1889,6 +2121,7 @@ function ByTopicSection({
             projectIds={c.projectIds}
             byPath={byPath}
             onJump={onJumpProject}
+            onEnterWorkspace={() => onEnterWorkspace(primaryWs)}
           />
         ))}
       </div>
@@ -1899,10 +2132,7 @@ function ByTopicSection({
               key={c.name}
               name={c.name}
               count={c.projectIds.length}
-              onClick={() => {
-                const first = c.projectIds[0];
-                if (first) onJumpProject(first);
-              }}
+              onClick={() => onEnterWorkspace(primaryWs)}
             />
           ))}
         </div>
@@ -1916,24 +2146,28 @@ function ClusterCard({
   projectIds,
   byPath,
   onJump,
+  onEnterWorkspace,
 }: {
   name: string;
   projectIds: string[];
   byPath: Map<string, { path: string; name: string; sessionCount: number }>;
   onJump: (path: string) => void;
+  onEnterWorkspace?: () => void;
 }) {
   const visible = projectIds.slice(0, 4);
   const more = projectIds.length - visible.length;
   return (
     <div className="flex flex-col gap-3.5 rounded-[14px] border border-border bg-cc-card px-5 py-4">
-      <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-[15px] font-medium text-foreground">
-          {name}
-        </h3>
+      <button
+        onClick={onEnterWorkspace}
+        disabled={!onEnterWorkspace}
+        className="-mx-1 -my-0.5 flex items-baseline justify-between gap-2 rounded-md px-1 py-0.5 text-left transition-colors enabled:hover:bg-cc-surface-hover disabled:cursor-default"
+      >
+        <h3 className="text-[15px] font-medium text-foreground">{name}</h3>
         <span className="text-[10.5px] font-medium text-muted-foreground">
           {projectIds.length} projects
         </span>
-      </div>
+      </button>
       <div className="flex flex-col">
         {visible.map((id) => {
           const p = byPath.get(id);
@@ -1956,10 +2190,10 @@ function ClusterCard({
       </div>
       {more > 0 && (
         <button
-          className="text-[11px] text-cc-accent-light hover:underline"
-          onClick={() => onJump(visible[0]!)}
+          className="text-[11px] font-medium text-muted-foreground hover:text-foreground hover:underline"
+          onClick={onEnterWorkspace}
         >
-          + {more} more
+          + {more} more in this topic →
         </button>
       )}
     </div>
