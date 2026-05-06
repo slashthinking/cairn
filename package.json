@@ -1,0 +1,82 @@
+{
+  "name": "cairn",
+  "productName": "Cairn",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Claude Code session manager — local-first, hybrid search, macOS",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "bun run dev:vite & bun run dev:electron",
+    "dev:vite": "bunx --bun vite",
+    "dev:electron": "bun run build:electron && NODE_ENV=development bunx electron .",
+    "build": "bun run build:vite && bun run build:electron",
+    "build:vite": "bunx --bun vite build",
+    "build:electron": "bunx tsc -p electron/tsconfig.json",
+    "build:native": "cd native-embed && bunx --bun napi build --platform --release",
+    "package:mac": "bun run build && bunx electron-builder --mac --arm64",
+    "test": "bun test",
+    "typecheck": "bunx tsc --noEmit -p tsconfig.json && bunx tsc --noEmit -p electron/tsconfig.json"
+  },
+  "dependencies": {
+    "@lancedb/lancedb": "0.27.2",
+    "apache-arrow": "^18.1.0",
+    "chokidar": "^4.0.0",
+    "clsx": "^2.1.1",
+    "electron-store": "^8.2.0",
+    "lucide-react": "^0.400.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "tailwind-merge": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "autoprefixer": "^10.4.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.4.0"
+  },
+  "build": {
+    "appId": "com.cairn.app",
+    "productName": "Cairn",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "package.json",
+      "native-embed/loader.cjs",
+      "native-embed/cairn-embed.darwin-arm64.node",
+      "!**/*.test.*",
+      "!**/*.fixture.*",
+      "!**/*.map"
+    ],
+    "asarUnpack": [
+      "native-embed/cairn-embed.darwin-arm64.node",
+      "node_modules/@lancedb/lancedb-darwin-arm64/**"
+    ],
+    "afterPack": "scripts/afterPack.cjs",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["arm64"]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "identity": null,
+      "gatekeeperAssess": false,
+      "hardenedRuntime": false,
+      "type": "distribution",
+      "minimumSystemVersion": "12.0.0"
+    },
+    "asar": true
+  }
+}

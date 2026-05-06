@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck + unit tests
+    runs-on: macos-14
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            native-embed/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('native-embed/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install JS deps
+        run: bun install --frozen-lockfile
+
+      - name: Install napi CLI
+        working-directory: native-embed
+        run: bun install --frozen-lockfile
+
+      - name: Build native embedder (debug, fast)
+        working-directory: native-embed
+        run: bunx --bun napi build --platform
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Run unit tests
+        run: bun test
+
+      - name: Build vite + electron main
+        run: bun run build

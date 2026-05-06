@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ───────────────────────────────────────────────────────────
+ * Cairn design tokens — mirrors cc_session.pen
+ * Switch by toggling .dark / .light on <html>.
+ * Brand / semantic colors stay constant; surface levels swap.
+ * ─────────────────────────────────────────────────────────── */
+
+:root {
+  /* Brand / semantic — same in both themes */
+  --cc-accent: #3072f0;
+  --cc-accent-light: #7da8ff;
+  --cc-accent-fg: #ffffff;
+  --cc-claude: #f09340;
+  --cc-success: #22c55e;
+  --cc-text-on-accent-soft: #ffffffcc;
+  --cc-text-on-accent-mute: #ffffffb3;
+
+  /* Radius */
+  --cc-radius-xs: 2px;
+  --cc-radius-sm: 6px;
+  --cc-radius-md: 8px;
+  --cc-radius-lg: 10px;
+  --cc-radius-xl: 14px;
+  --cc-radius-full: 9999px;
+
+  /* Typography */
+  --cc-font-english: "Inter", system-ui, sans-serif;
+  --cc-font-mono: "Geist Mono", "JetBrains Mono", monospace;
+  --cc-font-logo: "Geologica", "Inter", sans-serif;
+}
+
+html.dark {
+  /* Surface levels (swap with theme) */
+  --cc-surface-base: #1a1a1a;
+  --cc-surface-elevated: #1e1e1e;
+  --cc-surface-hover: rgba(255, 255, 255, 0.06);
+  --cc-surface-press: rgba(255, 255, 255, 0.08);
+  --cc-surface-strong: rgba(255, 255, 255, 0.12);
+
+  /* V2-K Mix card surface (matches K:--card #404040) — used by day cards
+     so the 0.10-white border lines stay visible. */
+  --cc-card: #404040;
+  --cc-card-foreground: #e5e5e5;
+
+  /* shadcn-style semantic tokens (K:--*) */
+  --background: #262626;
+  --foreground: #d4d4d4;
+  --muted: #404040;
+  --muted-foreground: #a3a3a3;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.15);
+  --sidebar: rgba(30, 30, 30, 0.5);
+  --secondary: #404040;
+  --destructive: #f87171;
+  --stale-foreground: #fcd34d;
+}
+
+html.light {
+  --cc-surface-base: #fafafa;
+  --cc-surface-elevated: #ffffff;
+  --cc-surface-hover: rgba(0, 0, 0, 0.06);
+  --cc-surface-press: rgba(0, 0, 0, 0.08);
+  --cc-surface-strong: rgba(0, 0, 0, 0.12);
+
+  --cc-card: #ffffff;
+  --cc-card-foreground: #18181b;
+
+  --background: #ffffff;
+  --foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --sidebar: #f4f4f5;
+  --secondary: #f4f4f5;
+  --destructive: #dc2626;
+  --stale-foreground: #b45309;
+}
+
+body {
+  margin: 0;
+  font-family: var(--cc-font-english);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* macOS draggable title bar area */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Thin always-classic scrollbar for sidebar/list panes so the macOS overlay
+   scrollbar doesn't draw on top of text. ::-webkit-scrollbar guarantees the
+   bar takes layout width on Electron's Chromium. */
+.cc-scroll-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.cc-scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.cc-scroll-thin::-webkit-scrollbar-thumb {
+  background-color: var(--cc-surface-strong);
+  border-radius: 3px;
+}
+.cc-scroll-thin::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}

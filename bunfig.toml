@@ -1,0 +1,8 @@
+# Bun-only project. No Node fallback.
+[install]
+# Use bun's native package manager exclusively
+exact = true
+
+[run]
+# bun runs scripts with itself by default
+shell = "system"

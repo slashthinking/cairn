@@ -1,0 +1,31 @@
+[package]
+name = "cairn-embed"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "3", default-features = false, features = ["napi8", "tokio_rt"] }
+napi-derive = "3"
+fastembed = { version = "5", default-features = false, features = [
+    "qwen3",
+    "hf-hub-native-tls",
+    "ort-download-binaries-native-tls",
+] }
+candle-core = "0.10"
+once_cell = "1"
+tokio = { version = "1", features = ["sync", "rt-multi-thread"] }
+# jieba-rs ships its dictionary embedded in the binary (~5MB), so users
+# don't need to install or download anything. Used to pre-tokenize CJK
+# text before handing it to Tantivy.
+jieba-rs = "0.7"
+
+[build-dependencies]
+napi-build = "2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "symbols"
