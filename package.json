@@ -2,7 +2,7 @@
   "name": "cairn",
   "productName": "Cairn",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Claude Code session manager — local-first, hybrid search, macOS",
   "main": "dist-electron/main.js",
   "scripts": {

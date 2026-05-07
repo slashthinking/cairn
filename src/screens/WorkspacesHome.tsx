@@ -74,28 +74,51 @@ export function WorkspacesHome({
 
   // Daily-cadence vector index rebuild. Fires at most once per app open
   // and only when the on-disk index is missing or > 24h old. Runs in the
-  // background — UI doesn't block. If `uv` / Python isn't available the
-  // IPC returns ok:false and we silently fall back to lexical-only.
+  // background — UI doesn't block. The rebuild is deferred 8s after
+  // mount so the UI is interactive first; if the embedder panics in its
+  // tokio worker, the error gets surfaced as a JS Error (panic=unwind in
+  // native-embed/Cargo.toml) instead of SIGTRAP-aborting the process.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const status = await window.cairn.lancedbStatus();
-        const stale =
-          !status.ready ||
-          (status.ageMs !== null && status.ageMs > 24 * 60 * 60 * 1000);
-        if (!stale) {
-          // Even when fresh, run an incremental pass on app boot so that
-          // any sessions added/changed/deleted since the last build get
-          // picked up. Fast: only changed sessions actually re-embed.
-          // Skip if last built within 5 min — likely just relaunched.
-          if (status.ageMs !== null && status.ageMs < 5 * 60 * 1000) return;
-        }
-        // Wait for allSessions so we have something to embed.
-        const list = Array.isArray(app.allSessions)
-          ? app.allSessions
-          : await window.cairn.listAllSessions();
-        if (cancelled) return;
+    let startedToastShown = false;
+    const startDelay = setTimeout(() => {
+      if (cancelled) return;
+      runIndex().catch((err) => {
+        // panic=unwind ships in cairn-embed, so a Rust panic now arrives
+        // here as a JS error instead of a SIGTRAP. Surface it gently —
+        // lexical search still works.
+        toast.info(
+          "Search index couldn't update",
+          err instanceof Error ? err.message : String(err),
+        );
+      });
+    }, 8_000);
+    async function runIndex() {
+      const status = await window.cairn.lancedbStatus();
+      const stale =
+        !status.ready ||
+        (status.ageMs !== null && status.ageMs > 24 * 60 * 60 * 1000);
+      if (!stale) {
+        // Even when fresh, run an incremental pass on app boot so that
+        // any sessions added/changed/deleted since the last build get
+        // picked up. Fast: only changed sessions actually re-embed.
+        // Skip if last built within 5 min — likely just relaunched.
+        if (status.ageMs !== null && status.ageMs < 5 * 60 * 1000) return;
+      }
+      // Wait for allSessions so we have something to embed.
+      const list = Array.isArray(app.allSessions)
+        ? app.allSessions
+        : await window.cairn.listAllSessions();
+      if (cancelled) return;
+      // First-build (or stale) is heavy — let the user know so they're
+      // not surprised by sudden CPU + disk activity.
+      if (!status.ready && !startedToastShown && list.length > 0) {
+        startedToastShown = true;
+        toast.info(
+          "Building search index…",
+          `${list.length} sessions · runs in background`,
+        );
+      }
         // Fetch the 10-message preview for each session so the embedder
         // and BM25 see real conversation content, not just metadata.
         // Bound concurrency so we don't fire 100s of IPC calls at once.
@@ -167,28 +190,24 @@ export function WorkspacesHome({
               it.text.trim().length > 0 &&
               !/^Tool result of/i.test(it.text.trim()),
           );
-        if (items.length === 0) return;
-        const res = await window.cairn.lancedbRebuild({ items });
-        if (cancelled) return;
-        if (res.ok) {
-          // Stay quiet when nothing changed — only toast when the index
-          // actually moved (new embeds, deletions, or first build).
-          if (res.embedded > 0 || res.removed > 0) {
-            const parts: string[] = [];
-            if (res.embedded > 0) parts.push(`+${res.embedded} embedded`);
-            if (res.reused > 0) parts.push(`${res.reused} reused`);
-            if (res.removed > 0) parts.push(`-${res.removed} removed`);
-            toast.success("Semantic index updated", parts.join(" · "));
-          }
+      if (items.length === 0) return;
+      const res = await window.cairn.lancedbRebuild({ items });
+      if (cancelled) return;
+      if (res.ok) {
+        // Stay quiet when nothing changed — only toast when the index
+        // actually moved (new embeds, deletions, or first build).
+        if (res.embedded > 0 || res.removed > 0) {
+          const parts: string[] = [];
+          if (res.embedded > 0) parts.push(`+${res.embedded} embedded`);
+          if (res.reused > 0) parts.push(`${res.reused} reused`);
+          if (res.removed > 0) parts.push(`-${res.removed} removed`);
+          toast.success("Semantic index updated", parts.join(" · "));
         }
-        // Failure is silent — `uv`/Python may not be installed yet, which
-        // is fine: lexical search still works.
-      } catch {
-        // Swallow.
       }
-    })();
+    }
     return () => {
       cancelled = true;
+      clearTimeout(startDelay);
     };
   }, [app.allSessions]);
 

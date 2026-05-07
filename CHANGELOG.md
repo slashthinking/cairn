@@ -4,6 +4,29 @@ All notable changes to Cairn are documented here. Format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [0.1.1] — 2026-05-07
+
+### Fixed
+
+- **Embedder panic no longer kills the app.** `native-embed/Cargo.toml` now uses `panic = "unwind"` so a Rust panic inside a tokio worker (model init, embed, jieba) is converted by napi-rs into a JS error instead of SIGTRAP-aborting the Electron main process. Reported as a launch-time crash after clearing `~/.claude/cairn/`.
+- **Auto index rebuild deferred 8s after launch** so the UI is interactive before the embedder starts heavy work — and a visible toast (`Building search index… N sessions · runs in background`) is shown the first time so the rebuild isn't invisible.
+- **Auto rebuild errors surface as toast**, not silent. Lexical search still works as fallback when the embedder is unavailable.
+
+### Visual
+
+- Pills active state: white pill (`bg-foreground text-background`) with shadow, replacing the previous low-contrast `bg-cc-surface-press`. Highest-IA element is now the heaviest visual anchor on the page.
+- Project drill: items-baseline + leading-none across mixed font sizes so `← Coding › cairn · 24 sessions` lines up cleanly.
+- ScopedProjectRow: same baseline alignment fix; bullet dot and chevron use self-center.
+- Pills count: 10.5px → 12px font-medium so it shares baseline with the 12px label.
+- Light-mode shadows: split into `light:` / `dark:` variants — softer alpha in light mode, original depth in dark mode.
+
+### Added
+
+- **Workspace scope cluster view**: when AI clusters exist for the workspace, default to cluster cards with a `By topic / By time` segmented toggle and `Re-cluster` action. Falls back to flat time-sorted list with `AI Cluster` button when no clusters yet.
+- **By topic cluster card click**: `+ N more` and the cluster header now enter the workspace (where the full cluster is laid out), instead of jumping to the first project's drill.
+- **Project drill AI summaries button**: manual `Generate AI summaries · N` action that batch-renames the most-recent 30 unnamed sessions via the local `claude` CLI (concurrency 2, progress shown).
+- **Quick Start AI folder name**: typing into the textarea triggers a debounced `claude` rename suggestion that fills the folder name automatically. Falls back to slugify, then to `scratch-MMDD-HHMM`.
+
 ## [0.1.0] — 2026-05-06
 
 First public release. Apple Silicon Macs only.

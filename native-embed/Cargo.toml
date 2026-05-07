@@ -29,3 +29,8 @@ napi-build = "2"
 lto = true
 codegen-units = 1
 strip = "symbols"
+# Use unwind so napi-rs can catch Rust panics and surface them as JS
+# errors instead of SIGTRAP-aborting the Electron main process. Without
+# this, any panic inside a tokio worker (model init, embed batch, jieba
+# tokenize) takes the whole app down before JS can catch.
+panic = "unwind"
