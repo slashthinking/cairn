@@ -72,21 +72,23 @@ export function WorkspacesHome({
     if (app.allSessions === null) void app.loadAllSessions();
   }, [app.allSessions, app.loadAllSessions]);
 
-  // Daily-cadence vector index rebuild. Fires at most once per app open
-  // and only when the on-disk index is missing or > 24h old. Runs in the
-  // background — UI doesn't block. The rebuild is deferred 8s after
-  // mount so the UI is interactive first; if the embedder panics in its
-  // tokio worker, the error gets surfaced as a JS Error (panic=unwind in
-  // native-embed/Cargo.toml) instead of SIGTRAP-aborting the process.
+  // Daily-cadence vector index rebuild — TEMPORARILY DISABLED on launch.
+  //
+  // The embedder (candle Metal + fastembed) panics during model load on
+  // some setups; that panic SIGTRAP-aborts the Electron main process
+  // before any JS catch can run. Re-enable once the panic is caught at
+  // the napi-rs boundary (panic = "unwind" alone isn't enough; needs
+  // explicit catch_unwind wrappers in cairn-embed/src/lib.rs).
+  //
+  // Search continues to work via lexical (BM25) fallback; vector results
+  // are simply unavailable until the rebuild path is safe again.
   useEffect(() => {
     let cancelled = false;
     let startedToastShown = false;
+    const REBUILD_ON_LAUNCH = false;
     const startDelay = setTimeout(() => {
-      if (cancelled) return;
+      if (cancelled || !REBUILD_ON_LAUNCH) return;
       runIndex().catch((err) => {
-        // panic=unwind ships in cairn-embed, so a Rust panic now arrives
-        // here as a JS error instead of a SIGTRAP. Surface it gently —
-        // lexical search still works.
         toast.info(
           "Search index couldn't update",
           err instanceof Error ? err.message : String(err),

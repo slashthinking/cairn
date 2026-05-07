@@ -4,6 +4,16 @@ All notable changes to Cairn are documented here. Format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-05-07
+
+### Fixed
+
+- **Hard kill-switch on the native embedder**. cairn-embed still SIGTRAP-aborts the main process on some setups during model init even with `panic = "unwind"`; the panic happens before any JS catch can fire. Until that's traced and fixed at the napi-rs boundary, the embedder is bypassed entirely:
+  - `lancedb:rebuild`, `lancedb:search`, `lancedb:status` short-circuit to no-op responses.
+  - Search continues to work via lexical (BM25) fallback over session titles + projects + workspaces.
+  - Set `CAIRN_VECTOR=1` in the environment to opt back in (only safe if you've separately verified your candle/Metal stack is clean).
+- Auto rebuild on launch now stays disabled regardless of timer.
+
 ## [0.1.1] — 2026-05-07
 
 ### Fixed

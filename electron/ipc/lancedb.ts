@@ -394,9 +394,45 @@ async function clearAll(): Promise<void> {
   }
 }
 
+// SAFETY KILL-SWITCH: when true, the native embedder is never touched.
+// Search falls back to lexical only. Set CAIRN_VECTOR=1 in the env to
+// re-enable. Reason: cairn-embed currently SIGTRAP-aborts the Electron
+// main process on some setups (likely model init / Metal device race),
+// and a panic in any tokio worker takes the whole app down before JS
+// can catch.
+const VECTOR_DISABLED = process.env.CAIRN_VECTOR !== "1";
+
 export function registerLancedbIpc(): void {
-  ipcMain.handle("lancedb:rebuild", (_e, p: RebuildInput) => rebuild(p));
-  ipcMain.handle("lancedb:search", (_e, p: SearchInput) => search(p));
-  ipcMain.handle("lancedb:status", () => status());
+  ipcMain.handle("lancedb:rebuild", (_e, p: RebuildInput) => {
+    if (VECTOR_DISABLED) {
+      return {
+        embedded: 0,
+        reused: 0,
+        removed: 0,
+        errors: 0,
+        ok: false,
+        message:
+          "Vector index disabled in this build (set CAIRN_VECTOR=1 to enable).",
+      } satisfies RebuildResult;
+    }
+    return rebuild(p);
+  });
+  ipcMain.handle("lancedb:search", (_e, p: SearchInput) => {
+    if (VECTOR_DISABLED) return [] as SearchHit[];
+    return search(p);
+  });
+  ipcMain.handle("lancedb:status", () => {
+    if (VECTOR_DISABLED) {
+      return {
+        ready: false,
+        model: DEFAULT_MODEL,
+        count: 0,
+        builtAt: null,
+        ageMs: null,
+        dim: null,
+      } satisfies StatusResult;
+    }
+    return status();
+  });
   ipcMain.handle("lancedb:clear", () => clearAll());
 }
