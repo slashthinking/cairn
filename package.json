@@ -2,7 +2,7 @@
   "name": "cairn",
   "productName": "Cairn",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Claude Code session manager — local-first, hybrid search, macOS",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -13,7 +13,7 @@
     "build:vite": "bunx --bun vite build",
     "build:electron": "bunx tsc -p electron/tsconfig.json",
     "build:native": "cd native-embed && bunx --bun napi build --platform --release",
-    "package:mac": "bun run build && bunx electron-builder --mac --arm64",
+    "package:mac": "bun run build && bunx electron-builder --mac --arm64 --publish never",
     "test": "bun test",
     "typecheck": "bunx tsc --noEmit -p tsconfig.json && bunx tsc --noEmit -p electron/tsconfig.json"
   },

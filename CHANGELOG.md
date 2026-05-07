@@ -4,6 +4,16 @@ All notable changes to Cairn are documented here. Format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [0.1.3] — 2026-05-07
+
+### Added
+
+- ClusterCard now exposes a clear `See all →` link in the header that takes the user into the workspace scope. The bottom `+ N more in this topic →` link gets an accent color so it reads as a CTA, not muted prose. Both wire to `setScope(workspace)`.
+
+### Fixed
+
+- GitHub Actions release workflow now actually publishes. `package:mac` script passes `--publish never` so electron-builder only packages; the `softprops/action-gh-release` step does the upload. Previously the auto-publish path tried to run with no `GH_TOKEN` and aborted after the dmg was already built.
+
 ## [0.1.2] — 2026-05-07
 
 ### Fixed

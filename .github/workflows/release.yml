@@ -64,6 +64,10 @@ jobs:
         env:
           # Ad-hoc signed; explicitly disable any inherited identity.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # Forward token so electron-builder doesn't bail when it sees
+          # a tag in env (we still publish via softprops/action-gh-release
+          # below, but keep this in case --publish=never is overridden).
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: List release artifacts
         run: ls -la release/

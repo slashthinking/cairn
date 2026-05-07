@@ -2180,16 +2180,22 @@ function ClusterCard({
   const more = projectIds.length - visible.length;
   return (
     <div className="flex flex-col gap-3.5 rounded-[14px] border border-border bg-cc-card px-5 py-4">
-      <button
-        onClick={onEnterWorkspace}
-        disabled={!onEnterWorkspace}
-        className="-mx-1 -my-0.5 flex items-baseline justify-between gap-2 rounded-md px-1 py-0.5 text-left transition-colors enabled:hover:bg-cc-surface-hover disabled:cursor-default"
-      >
-        <h3 className="text-[15px] font-medium text-foreground">{name}</h3>
-        <span className="text-[10.5px] font-medium text-muted-foreground">
-          {projectIds.length} projects
-        </span>
-      </button>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <h3 className="text-[15px] font-medium text-foreground">{name}</h3>
+          <span className="text-[11px] font-medium text-muted-foreground">
+            {projectIds.length} projects
+          </span>
+        </div>
+        {onEnterWorkspace && (
+          <button
+            onClick={onEnterWorkspace}
+            className="text-[11px] font-medium text-muted-foreground hover:text-foreground hover:underline"
+          >
+            See all →
+          </button>
+        )}
+      </div>
       <div className="flex flex-col">
         {visible.map((id) => {
           const p = byPath.get(id);
@@ -2210,10 +2216,11 @@ function ClusterCard({
           );
         })}
       </div>
-      {more > 0 && (
+      {more > 0 && onEnterWorkspace && (
         <button
-          className="text-[11px] font-medium text-muted-foreground hover:text-foreground hover:underline"
+          className="self-start text-[12px] font-medium text-cc-accent-light hover:underline"
           onClick={onEnterWorkspace}
+          type="button"
         >
           + {more} more in this topic →
         </button>
