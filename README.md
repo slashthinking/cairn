@@ -41,8 +41,6 @@ Everything is local. The vector store (LanceDB) lives in `~/.claude/cairn/lanced
 - Tested on macOS 12 (Monterey) and newer. `minimumSystemVersion` in the build is set to 12.0.0.
 - LanceDB ships only an `aarch64-apple-darwin` prebuilt binary on macOS. There is no Intel Mac path without recompiling from source.
 
-If you're on Intel: stick with [Cairn v0.1.0-universal.dmg](https://github.com/<org>/cairn/releases/tag/v0.1.0) which runs without the search subsystem, or wait for an Intel build.
-
 ---
 
 ## Install
